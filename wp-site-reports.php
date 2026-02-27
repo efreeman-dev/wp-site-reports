@@ -3,12 +3,10 @@
  * Plugin Name: WP Site Reports
  * Description: Logs all plugin, theme, and core updates (including Smart Plugin Manager / WP Engine)
  *              and generates a formatted monthly client email report with optional auto-send.
- * Version:     2.0.2 
+ * Version:     2.0.3 
  * Author:      EF
  * License:     GPL2
  */
-
- // Test update 2.0.2
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
@@ -1057,4 +1055,18 @@ function wpup_build_email( $client, $signoff, $plugins, $themes, $core ) {
         $body = '<p>' . implode('<br>', $l) . '</p>';
     }
     return $body;
+}
+// ─────────────────────────────────────────────
+// 10. PLUGIN UPDATE CHECKER (GitHub)
+// ─────────────────────────────────────────────
+if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
+    require __DIR__ . '/vendor/autoload.php';
+    use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+    $updateChecker = PucFactory::buildUpdateChecker(
+        'https://github.com/efreeman-dev/wp-site-reports/',
+        __FILE__,
+        'wp-site-reports'
+    );
+    // Use GitHub Release assets (recommended).
+    $updateChecker->getVcsApi()->enableReleaseAssets();
 }
