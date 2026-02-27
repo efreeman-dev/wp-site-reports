@@ -3,14 +3,13 @@
  * Plugin Name: WP Site Reports
  * Description: Logs all plugin, theme, and core updates (including Smart Plugin Manager / WP Engine)
  *              and generates a formatted monthly client email report with optional auto-send.
- * Version:     0.1.1
+ * Version:     0.1.2
  * Author:      EF
  * License:     GPL2
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// Test 0.1.1
 // ─────────────────────────────────────────────
 // 1. CONSTANTS 
 // ─────────────────────────────────────────────
@@ -322,7 +321,7 @@ function wpup_send_report( $manual = false, $custom_from = '', $custom_to = '' )
     $themes  = wpup_dedupe( $themes );
     $core    = wpup_dedupe( $core );
     $subject = wpup_build_subject();
-    $body    = wpup_build_email( $client_name, $signoff_name, $plugins, $themes, $core );
+    $body = wpup_build_email( $client_name, $signoff_name, $plugins, $themes, $core, $from, $to );
     $headers = array(
         'Content-Type: text/html; charset=UTF-8',
         'From: ' . $sender_name . ' <' . $sender_email . '>',
@@ -381,6 +380,7 @@ function wpup_admin_page() {
         update_option( 'wpup_client_name',  sanitize_text_field( isset( $_POST['client_name'] )  ? $_POST['client_name']  : '' ) );
         update_option( 'wpup_signoff_name', sanitize_text_field( isset( $_POST['signoff_name'] ) ? $_POST['signoff_name'] : '' ) );
         update_option( 'wpup_greeting',     wp_unslash( sanitize_text_field( isset( $_POST['wpup_greeting'] ) ? $_POST['wpup_greeting'] : '' ) ) );
+        update_option( 'wpup_include_posts', isset( $_POST['wpup_include_posts'] ) ? '1' : '0' );
         // Email Delivery
         update_option( 'wpup_sender_name',  sanitize_text_field( isset( $_POST['sender_name'] )  ? $_POST['sender_name']  : '' ) );
         update_option( 'wpup_sender_email', sanitize_email( isset( $_POST['sender_email'] )      ? $_POST['sender_email'] : '' ) );
@@ -477,7 +477,7 @@ function wpup_admin_page() {
     $plugins = wpup_dedupe( $plugins );
     $themes  = wpup_dedupe( $themes );
     $core    = wpup_dedupe( $core );
-    $email   = wpup_build_email( $saved_client, $saved_signoff, $plugins, $themes, $core );
+    $email = wpup_build_email( $saved_client, $saved_signoff, $plugins, $themes, $core, $from, $to );
     $subject = wpup_build_subject();
 
     // Delivery settings for preview
@@ -652,32 +652,6 @@ function wpup_admin_page() {
                 <?php wp_nonce_field('wpup_save_settings'); ?>
                 <input type="hidden" name="wpup_save_settings" value="1">
 
-                <!-- ── Email Content ── -->
-                <h3 style="border-bottom:1px solid #eee;padding-bottom:8px;">Email Content</h3>
-                <table class="form-table" style="margin-bottom:24px;">
-                    <tr>
-                        <th style="width:200px;"><label for="client_name">Recipient Name</label></th>
-                        <td>
-                            <input type="text" name="client_name" id="client_name" value="<?php echo esc_attr($saved_client !== 'there' ? $saved_client : ''); ?>" placeholder="e.g. John" style="width:280px;">
-                            <p class="description">Used in the greeting — e.g. "Hi John,". Defaults to "Hi there," if left blank.</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="signoff_name">Sign-off Name</label></th>
-                        <td>
-                            <input type="text" name="signoff_name" id="signoff_name" value="<?php echo esc_attr($saved_signoff); ?>" placeholder="e.g. Jane" style="width:280px;">
-                            <p class="description">Appears at the bottom of the email if no HTML signature is enabled.</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="wpup_greeting">Greeting Line</label></th>
-                        <td>
-                            <input type="text" name="wpup_greeting" id="wpup_greeting" value="<?php echo esc_attr( get_option('wpup_greeting', "I hope you're doing well. Please see the website updates below:") ); ?>" style="width:420px;">
-                            <p class="description">Appears after "Hi [Name]," at the top of the email.</p>
-                        </td>
-                    </tr>
-                </table>
-
                 <!-- ── Email Delivery ── -->
                 <h3 style="border-bottom:1px solid #eee;padding-bottom:8px;">Email Delivery</h3>
                 <table class="form-table" style="margin-bottom:24px;">
@@ -715,6 +689,42 @@ function wpup_admin_page() {
                         <td>
                             <textarea name="recipients_bcc" id="recipients_bcc" rows="3" style="width:380px;font-family:monospace;"><?php echo esc_textarea(implode("\n", get_option('wpup_recipients_bcc', array()))); ?></textarea>
                             <p class="description">One email per line, or comma-separated. Optional.</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- ── Email Content ── -->
+                <h3 style="border-bottom:1px solid #eee;padding-bottom:8px;">Email Content</h3>
+                <table class="form-table" style="margin-bottom:24px;">
+                    <tr>
+                        <th style="width:200px;"><label for="client_name">Recipient Name</label></th>
+                        <td>
+                            <input type="text" name="client_name" id="client_name" value="<?php echo esc_attr($saved_client !== 'there' ? $saved_client : ''); ?>" placeholder="e.g. John" style="width:280px;">
+                            <p class="description">Used in the greeting — e.g. "Hi John,". Defaults to "Hi there," if left blank.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="signoff_name">Sign-off Name</label></th>
+                        <td>
+                            <input type="text" name="signoff_name" id="signoff_name" value="<?php echo esc_attr($saved_signoff); ?>" placeholder="e.g. Jane" style="width:280px;">
+                            <p class="description">Appears at the bottom of the email if no HTML signature is enabled.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="wpup_greeting">Greeting Line</label></th>
+                        <td>
+                            <input type="text" name="wpup_greeting" id="wpup_greeting" value="<?php echo esc_attr( get_option('wpup_greeting', "I hope you're doing well. Please see the website updates below:") ); ?>" style="width:420px;">
+                            <p class="description">Appears after "Hi [Name]," at the top of the email.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="width:200px;">Include Blog Posts</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="wpup_include_posts" value="1" <?php checked( get_option('wpup_include_posts','0'), '1' ); ?>>
+                                Include published blog posts in reports
+                            </label>
+                            <p class="description">When enabled, posts published within the report date range will appear in the log preview and client email.</p>
                         </td>
                     </tr>
                 </table>
@@ -761,6 +771,7 @@ function wpup_admin_page() {
                         </td>
                     </tr>
                 </table>
+
                 <!-- ── Snapshot ── -->
                 <h3 id="wpup-snapshot" style="border-bottom:1px solid #eee;padding-bottom:8px;">Snapshot</h3>
                 <?php
