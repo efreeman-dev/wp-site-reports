@@ -3,17 +3,15 @@
  * Plugin Name: WP Site Reports
  * Description: Logs all plugin, theme, and core updates (including Smart Plugin Manager / WP Engine)
  *              and generates a formatted monthly client email report with optional auto-send.
- * Version:     0.1.2.1
+ * Version:     0.1.3
  * Author:      EF
  * License:     GPL2
  */
 
-// DEBUG BLOG POSTS FUNCTIONALITY
-
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 // ─────────────────────────────────────────────
-// 1. CONSTANTS 
+// 1. CONSTANTS
 // ─────────────────────────────────────────────
 define( 'WPUP_TABLE',           $GLOBALS['wpdb']->prefix . 'update_reporter_log' );
 define( 'WPUP_SNAPSHOT',        'wpup_version_snapshot' );
@@ -32,7 +30,6 @@ function wpup_activate() {
     wpup_save_snapshot();
     wpup_schedule_cron();
     wpup_schedule_send_cron();
-    // Remove any previously logged entries for this plugin itself
     $wpdb->delete( WPUP_TABLE, array( 'slug' => 'wp-site-reports' ), array( '%s' ) );
 }
 
@@ -154,7 +151,6 @@ function wpup_build_snapshot() {
 }
 
 function wpup_save_snapshot() {
-    // autoload=false: snapshot can be large; no need to load it on every WP request
     update_option( WPUP_SNAPSHOT, wpup_build_snapshot(), false );
 }
 
@@ -179,7 +175,6 @@ function wpup_snapshot_check() {
     if ( version_compare( $new['core'], isset( $old['core'] ) ? $old['core'] : '0', '>' ) )
         wpup_insert_log( array( 'update_type' => 'core', 'action_type' => 'update', 'name' => 'WordPress', 'slug' => 'wordpress', 'old_version' => isset( $old['core'] ) ? $old['core'] : '', 'new_version' => $new['core'], 'source' => 'snapshot' ) );
     update_option( WPUP_SNAPSHOT, $new, false );
-    // Save the last checked timestamp in UTC
     update_option( 'wpup_last_snapshot_check', gmdate('Y-m-d H:i:s'), false );
 }
 
@@ -248,7 +243,6 @@ function wpup_find_plugin_file( $folder ) {
 
 function wpup_insert_log( $args ) {
     global $wpdb;
-    // Never log updates to this plugin itself
     if ( isset( $args['slug'] ) && $args['slug'] === 'wp-site-reports' ) return;
     $nv     = isset( $args['new_version'] ) ? $args['new_version'] : '';
     $exists = $wpdb->get_var( $wpdb->prepare(
@@ -323,7 +317,7 @@ function wpup_send_report( $manual = false, $custom_from = '', $custom_to = '' )
     $themes  = wpup_dedupe( $themes );
     $core    = wpup_dedupe( $core );
     $subject = wpup_build_subject();
-    $body = wpup_build_email( $client_name, $signoff_name, $plugins, $themes, $core, $from, $to );
+    $body    = wpup_build_email( $client_name, $signoff_name, $plugins, $themes, $core, $from, $to );
     $headers = array(
         'Content-Type: text/html; charset=UTF-8',
         'From: ' . $sender_name . ' <' . $sender_email . '>',
@@ -378,11 +372,6 @@ function wpup_admin_page() {
 
     // ── Save settings ─────────────────────────
     if ( isset( $_POST['wpup_save_settings'] ) && check_admin_referer('wpup_save_settings') ) {
-        // Email Content
-        update_option( 'wpup_client_name',  sanitize_text_field( isset( $_POST['client_name'] )  ? $_POST['client_name']  : '' ) );
-        update_option( 'wpup_signoff_name', sanitize_text_field( isset( $_POST['signoff_name'] ) ? $_POST['signoff_name'] : '' ) );
-        update_option( 'wpup_greeting',     wp_unslash( sanitize_text_field( isset( $_POST['wpup_greeting'] ) ? $_POST['wpup_greeting'] : '' ) ) );
-        update_option( 'wpup_include_posts', isset( $_POST['wpup_include_posts'] ) ? '1' : '0' );
         // Email Delivery
         update_option( 'wpup_sender_name',  sanitize_text_field( isset( $_POST['sender_name'] )  ? $_POST['sender_name']  : '' ) );
         update_option( 'wpup_sender_email', sanitize_email( isset( $_POST['sender_email'] )      ? $_POST['sender_email'] : '' ) );
@@ -394,6 +383,11 @@ function wpup_admin_page() {
         update_option( 'wpup_recipients',     array_values( array_filter( array_map( 'sanitize_email', preg_split('/[\n,]+/', $raw_to)  ) ) ) );
         update_option( 'wpup_recipients_cc',  array_values( array_filter( array_map( 'sanitize_email', preg_split('/[\n,]+/', $raw_cc)  ) ) ) );
         update_option( 'wpup_recipients_bcc', array_values( array_filter( array_map( 'sanitize_email', preg_split('/[\n,]+/', $raw_bcc) ) ) ) );
+        // Email Content
+        update_option( 'wpup_client_name',   sanitize_text_field( isset( $_POST['client_name'] )  ? $_POST['client_name']  : '' ) );
+        update_option( 'wpup_signoff_name',  sanitize_text_field( isset( $_POST['signoff_name'] ) ? $_POST['signoff_name'] : '' ) );
+        update_option( 'wpup_greeting',      wp_unslash( sanitize_text_field( isset( $_POST['wpup_greeting'] ) ? $_POST['wpup_greeting'] : '' ) ) );
+        update_option( 'wpup_include_posts', isset( $_POST['wpup_include_posts'] ) ? '1' : '0' );
         // Signature
         $raw_color = isset( $_POST['sig_accent_color'] ) ? trim( $_POST['sig_accent_color'] ) : '#000000';
         $color     = preg_match( '/^#([a-fA-F0-9]{3}|[a-fA-F0-9]{6})$/', $raw_color ) ? $raw_color : '#000000';
@@ -422,7 +416,7 @@ function wpup_admin_page() {
         $active_tab = 'scheduled';
     }
 
-    // ── Send now (from preview tab) ────────────
+    // ── Send now ──────────────────────────────
     if ( isset( $_POST['wpup_send_now'] ) && check_admin_referer('wpup_send_now') ) {
         $send_from = sanitize_text_field( isset( $_POST['send_from'] ) ? $_POST['send_from'] : '' );
         $send_to   = sanitize_text_field( isset( $_POST['send_to'] )   ? $_POST['send_to']   : '' );
@@ -479,12 +473,9 @@ function wpup_admin_page() {
     $plugins = wpup_dedupe( $plugins );
     $themes  = wpup_dedupe( $themes );
     $core    = wpup_dedupe( $core );
-    $debug_posts = wpup_get_posts_for_range( $from, $to );
-echo '<pre>'; print_r($debug_posts); echo '</pre>';
-    $email = wpup_build_email( $saved_client, $saved_signoff, $plugins, $themes, $core, $from, $to );
+    $email   = wpup_build_email( $saved_client, $saved_signoff, $plugins, $themes, $core, $from, $to );
     $subject = wpup_build_subject();
 
-    // Delivery settings for preview
     $sender_name  = get_option( 'wpup_sender_name',    get_bloginfo('name') );
     $sender_email = get_option( 'wpup_sender_email',   get_option('admin_email') );
     $replyto      = get_option( 'wpup_replyto_email',  $sender_email );
@@ -571,7 +562,6 @@ echo '<pre>'; print_r($debug_posts); echo '</pre>';
             <!-- ── Email preview ── -->
             <h2 style="margin-top:0;padding-top:24px;border-top:2px solid #eee;">Email Preview</h2>
 
-            <!-- Delivery summary -->
             <?php $has_recipients = ! empty($recipients); ?>
             <?php if ( ! $has_recipients ) : ?>
                 <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:10px 16px;margin-bottom:20px;font-size:13px;">
@@ -591,7 +581,6 @@ echo '<pre>'; print_r($debug_posts); echo '</pre>';
                 <div><span style="display:inline-block;width:80px;color:#555;">Reply-To:</span> <?php echo esc_html($replyto ? $replyto : $sender_email); ?></div>
             </div>
 
-            <!-- Subject -->
             <div style="margin-bottom:16px;">
                 <label style="display:block;font-weight:600;margin-bottom:6px;">Subject</label>
                 <div style="display:flex;gap:8px;align-items:center;">
@@ -600,7 +589,6 @@ echo '<pre>'; print_r($debug_posts); echo '</pre>';
                 </div>
             </div>
 
-            <!-- Body -->
             <div style="margin-bottom:20px;">
                 <label style="display:block;font-weight:600;margin-bottom:6px;">Body</label>
                 <div style="position:relative;">
@@ -613,7 +601,6 @@ echo '<pre>'; print_r($debug_posts); echo '</pre>';
                 </div>
             </div>
 
-            <!-- Actions -->
             <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
                 <?php if ( $has_recipients ) : ?>
                 <form method="post" action="<?php echo esc_url($tab_url.'&tab=log'); ?>" style="margin:0;">
@@ -728,7 +715,7 @@ echo '<pre>'; print_r($debug_posts); echo '</pre>';
                                 <input type="checkbox" name="wpup_include_posts" value="1" <?php checked( get_option('wpup_include_posts','0'), '1' ); ?>>
                                 Include published blog posts in reports
                             </label>
-                            <p class="description">When enabled, posts published within the report date range will appear in the log preview and client email.</p>
+                            <p class="description">When enabled, posts published within the report date range will appear in the email preview and client email.</p>
                         </td>
                     </tr>
                 </table>
@@ -959,12 +946,6 @@ echo '<pre>'; print_r($debug_posts); echo '</pre>';
 // ─────────────────────────────────────────────
 // 9. HELPERS
 // ─────────────────────────────────────────────
-
-/**
- * Filters out plugins/themes that are no longer installed.
- * Only applied when the report range includes today — historical reports show everything as logged.
- * Used for email preview and sending — not applied to the Updates Log.
- */
 function wpup_filter_active( $rows, $to = '' ) {
     if ( empty( $rows ) ) return $rows;
     $today   = current_time('Y-m-d');
@@ -987,21 +968,13 @@ function wpup_filter_active( $rows, $to = '' ) {
     return $filtered;
 }
 
-/**
- * Deduplicates rows by slug, keeping the last-logged entry (most recent version).
- */
 function wpup_dedupe( $rows ) {
     $seen = array();
     foreach ( $rows as $r ) { $seen[ $r->slug ] = $r; }
     return array_values( $seen );
 }
 
-/**
- * Builds the email subject line.
- * Single-month ranges show "Month YYYY"; cross-month ranges show "Mon YYYY – Mon YYYY".
- */
 function wpup_build_subject() {
-    // Subject always reflects when the email is sent, not the date range it covers
     return 'Website Updates | ' . date('F Y') . ' | ' . get_bloginfo('name');
 }
 
@@ -1025,7 +998,7 @@ function wpup_build_signature() {
     return $html;
 }
 
-function wpup_build_email( $client, $signoff, $plugins, $themes, $core ) {
+function wpup_build_email( $client, $signoff, $plugins, $themes, $core, $from = '', $to = '' ) {
     global $wp_version;
     $active_theme = wp_get_theme();
     $greeting     = get_option( 'wpup_greeting', "I hope you're doing well. Please see the website updates below:" );
@@ -1061,6 +1034,24 @@ function wpup_build_email( $client, $signoff, $plugins, $themes, $core ) {
     } else {
         $l[] = ' - On latest version of WordPress (' . esc_html($wp_version) . ')';
     }
+
+    // ── Blog Posts ──
+    if ( get_option('wpup_include_posts','0') === '1' ) {
+        $posts = wpup_get_posts_for_range( $from, $to );
+        $l[]   = '';
+        $l[]   = '<strong><u>New Blog Posts:</u></strong>';
+        if ( ! empty($posts) ) {
+            foreach ( $posts as $post ) {
+                $date  = date( 'M j', strtotime( $post->post_date ) );
+                $url   = get_permalink( $post->ID );
+                $title = esc_html( $post->post_title );
+                $l[]   = ' - <a href="' . esc_url($url) . '" style="color:#000;">' . $title . '</a> (' . $date . ')';
+            }
+        } else {
+            $l[] = ' - No new posts this period';
+        }
+    }
+
     $l[] = '';
     $l[] = 'Thank you!';
     $sig  = wpup_build_signature();
@@ -1073,10 +1064,29 @@ function wpup_build_email( $client, $signoff, $plugins, $themes, $core ) {
     return $body;
 }
 
+function wpup_get_posts_for_range( $from = '', $to = '' ) {
+    $from = $from ? $from : current_time('Y-m-01');
+    $to   = $to   ? $to   : current_time('Y-m-d');
+    return get_posts( array(
+        'post_type'      => 'post',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'orderby'        => 'date',
+        'order'          => 'ASC',
+        'date_query'     => array(
+            array(
+                'column'    => 'post_date',
+                'after'     => date( 'Y-m-d', strtotime( $from ) - 1 ),
+                'before'    => date( 'Y-m-d', strtotime( $to ) + 1 ),
+                'inclusive' => true,
+            ),
+        ),
+    ) );
+}
+
 // ─────────────────────────────────────────────
 // 10. PLUGIN UPDATE CHECKER (GitHub)
 // ─────────────────────────────────────────────
-
 if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
 
     require __DIR__ . '/vendor/autoload.php';
