@@ -3,15 +3,16 @@
  * Plugin Name: WP Site Reports
  * Description: Logs all plugin, theme, and core updates (including Smart Plugin Manager / WP Engine)
  *              and generates a formatted monthly client email report with optional auto-send.
- * Version:     2.0.4
+ * Version:     2.0.5
  * Author:      EF
  * License:     GPL2
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+// Test 2.0.5
 // ─────────────────────────────────────────────
-// 1. CONSTANTS
+// 1. CONSTANTS 
 // ─────────────────────────────────────────────
 define( 'WPUP_TABLE',           $GLOBALS['wpdb']->prefix . 'update_reporter_log' );
 define( 'WPUP_SNAPSHOT',        'wpup_version_snapshot' );
@@ -1056,17 +1057,19 @@ function wpup_build_email( $client, $signoff, $plugins, $themes, $core ) {
     }
     return $body;
 }
+
 // ─────────────────────────────────────────────
 // 10. PLUGIN UPDATE CHECKER (GitHub)
 // ─────────────────────────────────────────────
+
 if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
+
     require __DIR__ . '/vendor/autoload.php';
-    use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
-    $updateChecker = PucFactory::buildUpdateChecker(
+
+    $updateChecker = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
         'https://github.com/efreeman-dev/wp-site-reports/',
         __FILE__,
         'wp-site-reports'
     );
-    // Use GitHub Release assets (recommended).
-    // $updateChecker->getVcsApi()->enableReleaseAssets();
+
 }
