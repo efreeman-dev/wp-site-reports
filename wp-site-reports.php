@@ -3,10 +3,12 @@
  * Plugin Name: WP Site Reports
  * Description: Logs all plugin, theme, and core updates (including Smart Plugin Manager / WP Engine)
  *              and generates a formatted monthly client email report with optional auto-send.
- * Version:     2.0.1
+ * Version:     2.0.2 
  * Author:      EF
  * License:     GPL2
  */
+
+ // Test update 2.0.2
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
