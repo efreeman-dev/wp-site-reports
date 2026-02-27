@@ -3,10 +3,12 @@
  * Plugin Name: WP Site Reports
  * Description: Logs all plugin, theme, and core updates (including Smart Plugin Manager / WP Engine)
  *              and generates a formatted monthly client email report with optional auto-send.
- * Version:     0.1.2
+ * Version:     0.1.2.1
  * Author:      EF
  * License:     GPL2
  */
+
+// DEBUG BLOG POSTS FUNCTIONALITY
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
@@ -477,6 +479,8 @@ function wpup_admin_page() {
     $plugins = wpup_dedupe( $plugins );
     $themes  = wpup_dedupe( $themes );
     $core    = wpup_dedupe( $core );
+    $debug_posts = wpup_get_posts_for_range( $from, $to );
+echo '<pre>'; print_r($debug_posts); echo '</pre>';
     $email = wpup_build_email( $saved_client, $saved_signoff, $plugins, $themes, $core, $from, $to );
     $subject = wpup_build_subject();
 
